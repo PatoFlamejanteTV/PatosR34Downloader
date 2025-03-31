@@ -46,7 +46,6 @@ namespace R34Downloader.Services
         {
             var maxPid = quantity <= PageSize ? 1 : quantity % PageSize == 0 ? quantity / PageSize - 1 : quantity / PageSize;
 
-            // WARNING: UGLY ASF METHOD: Uses ~2 GB of RAM and dont clean off the memory after the download!!!! FIX ASAP!!
             Parallel.For(0, maxPid + 1, pid =>
             {
                 var doc = new XmlDocument();
@@ -80,6 +79,11 @@ namespace R34Downloader.Services
                     progress.Report(reportStatus);
                     progress2.Report(reportStatus);
                 });
+
+                // Clean up memory after processing each page
+                doc = null;
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
             });
         }
 
