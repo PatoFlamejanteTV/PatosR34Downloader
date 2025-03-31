@@ -1,6 +1,7 @@
 ﻿using R34Downloader.Models;
 using System;
 using System.IO;
+using System.Threading.Tasks; // parellel system
 using System.Xml;
 
 namespace R34Downloader.Services
@@ -45,13 +46,14 @@ namespace R34Downloader.Services
         {
             var maxPid = quantity <= PageSize ? 1 : quantity % PageSize == 0 ? quantity / PageSize - 1 : quantity / PageSize;
 
-            for (var pid = 0; pid <= maxPid; pid++)
+            // WARNING: UGLY ASF METHOD: Uses ~2 GB of RAM and dont clean off the memory after the download!!!! FIX ASAP!!
+            Parallel.For(0, maxPid + 1, pid =>
             {
                 var doc = new XmlDocument();
                 doc.Load($"{ApiUrl}&tags={tags}&pid={pid}");
 
                 var postCount = quantity - pid * PageSize < PageSize ? quantity - pid * PageSize : PageSize;
-                for (var i = 0; i < postCount; i++)
+                Parallel.For(0, postCount, i =>
                 {
                     var url = doc.DocumentElement?.ChildNodes[i].Attributes?.GetNamedItem("file_url")?.Value;
                     var fileExtension = Path.GetExtension(url);
@@ -62,23 +64,23 @@ namespace R34Downloader.Services
                         if ((fileExtension == ".mp4" || fileExtension == ".webm") && SettingsModel.Video)
                         {
                             var sampleUrl = doc.DocumentElement?.ChildNodes[i].Attributes?.GetNamedItem("sample_url")?.Value ?? url;
-                            DownloadService.Download(sampleUrl, Path.Combine(path, "Video", filename));
+                            DownloadService.Download(sampleUrl, Path.Combine(path, "VID", filename));
                         }
                         else if (fileExtension == ".gif" && SettingsModel.Gif)
                         {
-                            DownloadService.Download(url, Path.Combine(path, "Gif", filename));
+                            DownloadService.Download(url, Path.Combine(path, "GIF", filename));
                         }
                         else if (fileExtension != ".mp4" && fileExtension != ".webm" && fileExtension != ".gif" && SettingsModel.Images)
                         {
-                            DownloadService.Download(url, Path.Combine(path, "Images", filename));
+                            DownloadService.Download(url, Path.Combine(path, "IMG", filename));
                         }
                     }
 
                     var reportStatus = pid * 100 + i + 1;
                     progress.Report(reportStatus);
                     progress2.Report(reportStatus);
-                }
-            }
+                });
+            });
         }
 
         #endregion
